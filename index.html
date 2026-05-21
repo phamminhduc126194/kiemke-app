@@ -531,19 +531,17 @@ function openCamera(target) {
 }
 
 function startZxing(video) {
-  // Ưu tiên 1: Dùng bộ nhận diện siêu tốc gốc của điện thoại
-  if ('BarcodeDetector' in window) {
-    startNativeDetector(video);
-    return;
-  }
-
-  // Ưu tiên 2: Dùng thư viện ZXing làm phương án dự phòng
+  // Ép dùng thư viện ZXing, bỏ qua hoàn toàn công cụ của iPhone
   if (typeof ZXing === 'undefined') {
-    showToast('warn', '⚠️', 'Thư viện chưa tải', 'Dùng nút nhập tay bên dưới');
+    alert("Thư viện quét mã bị chặn tải. Anh thử đổi mạng WiFi hoặc dùng 4G rồi mở lại nhé!");
+    showCameraHint('Thư viện chưa tải. Dùng nút ✏️ Nhập tay.');
     return;
   }
-
+  
+  showCameraHint('Đưa mã vào khung để quét tự động...');
+  
   try {
+    if (codeReader) { codeReader.reset(); } // Xóa phiên quét cũ nếu có
     codeReader = new ZXing.BrowserMultiFormatReader();
     codeReader.decodeFromVideoElement(video, function(result, err) {
       if (result && isScanning) {
@@ -551,45 +549,14 @@ function startZxing(video) {
         onCodeScanned(result.getText());
       }
     });
-  } catch(e) {
-    console.error(e);
+  } catch (e) {
+    alert("Lỗi khởi tạo camera: " + e.message);
   }
 }
 
-// BarcodeDetector API (Safari 17+ hỗ trợ)
+// Giữ lại hàm rỗng để các nút bấm không bị báo lỗi
 function startNativeDetector(video) {
-  if (!('BarcodeDetector' in window)) {
-    showCameraHint('Camera đang bật. Dùng nút ✏️ Nhập tay để nhập mã.');
-    return;
-  }
-  
-  var detector;
-  try {
-    // Không ép định dạng, để iPhone tự động quét các loại mã nó hỗ trợ tốt nhất
-    detector = new BarcodeDetector();
-  } catch (e) {
-    showCameraHint('Lỗi nhận diện. Hãy dùng nút nhập tay bên dưới.');
-    return;
-  }
-  
-  showCameraHint('Đưa mã vào khung — camera tự nhận diện');
-
-  function scan() {
-    if (!isScanning) return;
-    if (video.readyState === video.HAVE_ENOUGH_DATA) {
-      detector.detect(video).then(function(codes) {
-        if (codes.length > 0 && isScanning) {
-          isScanning = false;
-          onCodeScanned(codes[0].rawValue);
-          return;
-        }
-        requestAnimationFrame(scan);
-      }).catch(function() { requestAnimationFrame(scan); });
-    } else {
-      requestAnimationFrame(scan);
-    }
-  }
-  requestAnimationFrame(scan);
+  startZxing(video);
 }
 
 function showCameraHint(text) {

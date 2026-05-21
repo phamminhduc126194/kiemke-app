@@ -70,7 +70,7 @@
   .tab-content { display: none; flex: 1; overflow-y: auto; padding: 20px 20px 80px; }
   .tab-content.active { display: block; }
 
-  /* ---- CAMERA OVERLAY TỐI ƯU CHO HTML5-QRCODE ---- */
+  /* ---- CAMERA OVERLAY ---- */
   #camera-overlay {
     position: fixed; inset: 0; background: #000; z-index: 500;
     display: none; flex-direction: column;
@@ -414,7 +414,7 @@ var sessionLog = [];
 var stats = { total: 0, session: 0, dup: 0, err: 0 };
 var toastTimer = null;
 
-// Camera state (Thay thế bằng html5QrCode)
+// Camera state
 var currentScanTarget = 'masp';
 var html5QrCode = null; 
 var scannedCode = '';
@@ -488,7 +488,7 @@ function selectVitri(el) {
   else { custom.style.display = 'none'; selectedVitri = el.textContent; }
 }
 
-// ===================== CAMERA BẰNG HTML5-QRCODE TIÊU CHUẨN =====================
+// ===================== CAMERA BẰNG HTML5-QRCODE CHUẨN =====================
 function openCamera(target) {
   currentScanTarget = target;
   scannedCode = '';
@@ -505,14 +505,14 @@ function openCamera(target) {
     html5QrCode = new Html5Qrcode("reader");
   }
 
-  // Sửa lỗi triệt để: Chỉ truyền 'facingMode' đúng theo yêu cầu nghiêm ngặt của thư viện
+  // Cấu hình chuẩn nhất: Chỉ dùng facingMode
   var cameraConfig = { facingMode: "environment" };
 
   html5QrCode.start(
     cameraConfig,
     {
       fps: 20,
-      // Tạo khung chữ nhật nằm ngang vừa vặn với độ dài của Barcode
+      // Khung hình chữ nhật ngang bao trọn mã vạch Barcode
       qrbox: function(viewfinderWidth, viewfinderHeight) {
         var boxWidth = viewfinderWidth > 320 ? 320 : viewfinderWidth - 40;
         return { width: boxWidth, height: 130 };
@@ -525,13 +525,48 @@ function openCamera(target) {
       }
     },
     function(errorMessage) {
-      // Bỏ qua lỗi quét nền
+      // Bỏ qua các lỗi rác trong quá trình dò tìm khung hình
     }
   ).catch(function(err) {
     overlay.style.display = 'none';
     alert("Không thể mở camera. Vui lòng kiểm tra quyền truy cập! Lỗi: " + err);
   });
 }
+
+function onCodeScanned(code) {
+  scannedCode = code;
+  if (navigator.vibrate) navigator.vibrate(100);
+  document.getElementById('result-code').textContent = code;
+  document.getElementById('result-hint').textContent = 'Nhấn Xác nhận để ghi nhận vào ô nhập liệu';
+  document.getElementById('scan-result-bar').classList.add('show');
+}
+
+function resumeScan() {
+  scannedCode = '';
+  isScanning = true;
+  document.getElementById('scan-result-bar').classList.remove('show');
+}
+
+function confirmScan() {
+  if (!scannedCode) return;
+  if (currentScanTarget === 'masp') document.getElementById('inp-masp').value = scannedCode;
+  else if (currentScanTarget === 'imei') document.getElementById('inp-imei').value = scannedCode;
+  else if (currentScanTarget === 'masp-imei') document.getElementById('inp-masp-imei').value = scannedCode;
+  closeCamera();
+}
+
+function closeCamera() {
+  isScanning = false;
+  document.getElementById('camera-overlay').style.display = 'none';
+  document.getElementById('scan-result-bar').classList.remove('show');
+  
+  if (html5QrCode) {
+    try {
+      html5QrCode.stop().catch(function(err){ console.log("Lỗi tắt camera:", err); });
+    } catch(e) {}
+  }
+}
+
 // ===================== NHẬP TAY =====================
 function openManualInput() {
   var titles = { 'masp': 'Nhập mã sản phẩm', 'imei': 'Nhập IMEI / Serial', 'masp-imei': 'Nhập mã SP' };

@@ -250,4 +250,64 @@ function selectVitri(el) { document.querySelectorAll('.vitri-chip').forEach(c =>
 function openCamera(target) {
   currentScanTarget = target;
   scannedCode = '';
-  document.getElementById
+  document.getElementById('scan-result-bar').classList.remove('show');
+  document.getElementById('camera-overlay').style.display = 'flex';
+  isScanning = true;
+
+  if (!html5QrCode) {
+    html5QrCode = new Html5Qrcode("reader");
+  }
+
+  html5QrCode.start(
+    { facingMode: "environment" },
+    { fps: 15 },
+    function(decodedText) {
+      if (isScanning) {
+        isScanning = false;
+        scannedCode = decodedText;
+        if (navigator.vibrate) navigator.vibrate(100);
+        document.getElementById('result-code').textContent = decodedText;
+        document.getElementById('scan-result-bar').classList.add('show');
+      }
+    },
+    function(errorMessage) { /* Bỏ qua lỗi khung hình trống */ }
+  ).catch(function(err) {
+    alert("Không mở được camera. Vui lòng cấp quyền! Lỗi: " + err);
+    closeCamera();
+  });
+}
+
+function closeCamera() {
+  isScanning = false;
+  document.getElementById('camera-overlay').style.display = 'none';
+  document.getElementById('scan-result-bar').classList.remove('show');
+  if (html5QrCode) {
+    try { html5QrCode.stop(); } catch(e) {}
+  }
+}
+
+function resumeScan() {
+  scannedCode = '';
+  isScanning = true;
+  document.getElementById('scan-result-bar').classList.remove('show');
+}
+
+function confirmScan() {
+  if (currentScanTarget === 'masp') document.getElementById('inp-masp').value = scannedCode;
+  else if (currentScanTarget === 'imei') document.getElementById('inp-imei').value = scannedCode;
+  else document.getElementById('inp-masp-imei').value = scannedCode;
+  closeCamera();
+}
+
+function openManualInput() { document.getElementById('manual-popup').classList.add('show'); }
+function closeManualInput() { document.getElementById('manual-popup').classList.remove('show'); }
+function confirmManualInput() { scannedCode = document.getElementById('manual-input').value; document.getElementById('result-code').textContent = scannedCode; document.getElementById('scan-result-bar').classList.add('show'); closeManualInput(); }
+
+function showToast(type, icon, title, sub) {
+  var t = document.getElementById('toast'); t.className = 'result-toast ' + type + ' show';
+  document.getElementById('toast-icon').textContent = icon; document.getElementById('toast-title').textContent = title; document.getElementById('toast-sub').textContent = sub;
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+</script>
+</body>
+</html>

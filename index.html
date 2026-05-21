@@ -488,7 +488,7 @@ function selectVitri(el) {
   else { custom.style.display = 'none'; selectedVitri = el.textContent; }
 }
 
-// ===================== CAMERA BẰNG HTML5-QRCODE =====================
+// ===================== CAMERA BẰNG HTML5-QRCODE NÂNG CẤP FULL HD =====================
 function openCamera(target) {
   currentScanTarget = target;
   scannedCode = '';
@@ -505,9 +505,23 @@ function openCamera(target) {
     html5QrCode = new Html5Qrcode("reader");
   }
 
+  // Cấu hình ép iPhone mở luồng Video Full HD (1080p) để thấy rõ các vạch sọc nhỏ từ xa
+  var cameraConfig = {
+    facingMode: "environment",
+    width: { ideal: 1920 },
+    height: { ideal: 1080 }
+  };
+
   html5QrCode.start(
-    { facingMode: "environment" },
-    { fps: 15, qrbox: { width: 260, height: 260 } },
+    cameraConfig,
+    {
+      fps: 20,
+      // Mở rộng khung quét chữ nhật thoải mái cho Barcode dài
+      qrbox: function(viewfinderWidth, viewfinderHeight) {
+        var boxWidth = viewfinderWidth > 320 ? 320 : viewfinderWidth - 40;
+        return { width: boxWidth, height: 140 };
+      }
+    },
     function(decodedText) {
       if (isScanning) {
         isScanning = false;
@@ -515,48 +529,13 @@ function openCamera(target) {
       }
     },
     function(errorMessage) {
-      // Bỏ qua lỗi quét liên tục ở background
+      // Bỏ qua lỗi quét nền
     }
   ).catch(function(err) {
     overlay.style.display = 'none';
     alert("Không thể mở camera. Vui lòng kiểm tra quyền truy cập! Lỗi: " + err);
   });
 }
-
-function onCodeScanned(code) {
-  scannedCode = code;
-  if (navigator.vibrate) navigator.vibrate(100);
-  document.getElementById('result-code').textContent = code;
-  document.getElementById('result-hint').textContent = 'Nhấn Xác nhận để ghi nhận vào ô nhập liệu';
-  document.getElementById('scan-result-bar').classList.add('show');
-}
-
-function resumeScan() {
-  scannedCode = '';
-  isScanning = true;
-  document.getElementById('scan-result-bar').classList.remove('show');
-}
-
-function confirmScan() {
-  if (!scannedCode) return;
-  if (currentScanTarget === 'masp') document.getElementById('inp-masp').value = scannedCode;
-  else if (currentScanTarget === 'imei') document.getElementById('inp-imei').value = scannedCode;
-  else if (currentScanTarget === 'masp-imei') document.getElementById('inp-masp-imei').value = scannedCode;
-  closeCamera();
-}
-
-function closeCamera() {
-  isScanning = false;
-  document.getElementById('camera-overlay').style.display = 'none';
-  document.getElementById('scan-result-bar').classList.remove('show');
-  
-  if (html5QrCode) {
-    try {
-      html5QrCode.stop().catch(function(err){ console.log("Lỗi tắt camera:", err); });
-    } catch(e) {}
-  }
-}
-
 // ===================== NHẬP TAY =====================
 function openManualInput() {
   var titles = { 'masp': 'Nhập mã sản phẩm', 'imei': 'Nhập IMEI / Serial', 'masp-imei': 'Nhập mã SP' };

@@ -531,13 +531,15 @@ function openCamera(target) {
 }
 
 function startZxing(video) {
+  // Ưu tiên 1: Dùng bộ nhận diện siêu tốc gốc của điện thoại
+  if ('BarcodeDetector' in window) {
+    startNativeDetector(video);
+    return;
+  }
+
+  // Ưu tiên 2: Dùng thư viện ZXing làm phương án dự phòng
   if (typeof ZXing === 'undefined') {
-    // Fallback: dùng BarcodeDetector native nếu có
-    if ('BarcodeDetector' in window) {
-      startNativeDetector(video);
-    } else {
-      showToast('warn', '⚠️', 'Thư viện chưa tải', 'Dùng nút nhập tay bên dưới');
-    }
+    showToast('warn', '⚠️', 'Thư viện chưa tải', 'Dùng nút nhập tay bên dưới');
     return;
   }
 
@@ -550,7 +552,7 @@ function startZxing(video) {
       }
     });
   } catch(e) {
-    startNativeDetector(video);
+    console.error(e);
   }
 }
 

@@ -488,7 +488,7 @@ function selectVitri(el) {
   else { custom.style.display = 'none'; selectedVitri = el.textContent; }
 }
 
-// ===================== CAMERA BẰNG HTML5-QRCODE NÂNG CẤP FULL HD =====================
+// ===================== CAMERA BẰNG HTML5-QRCODE CHUẨN CẤU HÌNH =====================
 function openCamera(target) {
   currentScanTarget = target;
   scannedCode = '';
@@ -505,18 +505,20 @@ function openCamera(target) {
     html5QrCode = new Html5Qrcode("reader");
   }
 
-  // Cấu hình ép iPhone mở luồng Video Full HD (1080p) để thấy rõ các vạch sọc nhỏ từ xa
+  // Sửa lỗi 'cameraIdOrConfig': Gom cấu hình video vào đúng 1 key 'videoConstraints' theo quy định của thư viện
   var cameraConfig = {
-    facingMode: "environment",
-    width: { ideal: 1920 },
-    height: { ideal: 1080 }
+    videoConstraints: {
+      facingMode: "environment",
+      width: { ideal: 1920 },
+      height: { ideal: 1080 }
+    }
   };
 
   html5QrCode.start(
     cameraConfig,
     {
       fps: 20,
-      // Mở rộng khung quét chữ nhật thoải mái cho Barcode dài
+      // Khung quét chữ nhật ngang bao trọn Barcode
       qrbox: function(viewfinderWidth, viewfinderHeight) {
         var boxWidth = viewfinderWidth > 320 ? 320 : viewfinderWidth - 40;
         return { width: boxWidth, height: 140 };

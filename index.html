@@ -562,7 +562,16 @@ function startNativeDetector(video) {
     showCameraHint('Camera đang bật. Dùng nút ✏️ Nhập tay để nhập mã.');
     return;
   }
-  var detector = new BarcodeDetector({ formats: ['qr_code','ean_13','ean_8','code_128','code_39','itf','data_matrix','pdf417','upc_a','upc_e'] });
+  
+  var detector;
+  try {
+    // Không ép định dạng, để iPhone tự động quét các loại mã nó hỗ trợ tốt nhất
+    detector = new BarcodeDetector();
+  } catch (e) {
+    showCameraHint('Lỗi nhận diện. Hãy dùng nút nhập tay bên dưới.');
+    return;
+  }
+  
   showCameraHint('Đưa mã vào khung — camera tự nhận diện');
 
   function scan() {

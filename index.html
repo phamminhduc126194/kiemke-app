@@ -8,8 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Kiểm Kê">
 <title>Hệ thống Kiểm Kê</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
+
 <style>
   :root {
     --bg: #0d0f14; --bg2: #151820; --bg3: #1e2230;
@@ -513,13 +512,21 @@ function openCamera(target) {
   overlay.style.display = 'flex';
   isScanning = true;
 
-  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } })
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } } })
   .then(function(stream) {
     scanStream = stream;
     var video = document.getElementById('camera-video');
     video.srcObject = stream;
     video.play();
-    video.onloadedmetadata = function() { startScanner(video); };
+    video.onloadedmetadata = function() {
+      if (!('BarcodeDetector' in window)) {
+        // BarcodeDetector chưa bật — hướng dẫn bật
+        showCameraHint('⚠️ Cần bật tính năng quét trong Safari. Xem hướng dẫn bên dưới.');
+        showToast('warn','⚠️','Cần bật BarcodeDetector','Vào Cài đặt → Safari → Nâng cao → Thử nghiệm → bật Shape Detection');
+      } else {
+        startScanner(video);
+      }
+    };
   })
   .catch(function(err) {
     overlay.style.display = 'none';
@@ -531,67 +538,47 @@ function openCamera(target) {
   });
 }
 
-// Canvas dùng để decode frame
-var scanCanvas = null;
-var scanCtx = null;
 var rafId = null;
+var barcodeDetector = null;
 
 function startScanner(video) {
-  // Tạo canvas ẩn để lấy frame
-  if (!scanCanvas) {
-    scanCanvas = document.createElement('canvas');
-    scanCtx = scanCanvas.getContext('2d');
+  // iOS 17/18 Safari hỗ trợ BarcodeDetector native
+  if (!('BarcodeDetector' in window)) {
+    showCameraHint('Trình duyệt không hỗ trợ quét tự động. Dùng ✏️ Nhập tay.');
+    return;
   }
 
-  showCameraHint('Đưa mã vào khung — camera tự nhận diện');
+  // Khởi tạo detector với tất cả định dạng phổ biến
+  BarcodeDetector.getSupportedFormats().then(function(formats) {
+    barcodeDetector = new BarcodeDetector({ formats: formats });
+    showCameraHint('Đưa mã vào khung — giữ yên tay');
+    scanLoop(video);
+  }).catch(function() {
+    // Fallback nếu getSupportedFormats không có
+    barcodeDetector = new BarcodeDetector({
+      formats: ['qr_code','ean_13','ean_8','code_128','code_39','upc_a','upc_e','itf','data_matrix','aztec','pdf417']
+    });
+    showCameraHint('Đưa mã vào khung — giữ yên tay');
+    scanLoop(video);
+  });
+}
 
-  function tick() {
-    if (!isScanning) return;
-    if (video.readyState !== video.HAVE_ENOUGH_DATA) {
-      rafId = requestAnimationFrame(tick);
-      return;
-    }
+function scanLoop(video) {
+  if (!isScanning) return;
 
-    var w = video.videoWidth;
-    var h = video.videoHeight;
-    if (w === 0 || h === 0) { rafId = requestAnimationFrame(tick); return; }
-
-    scanCanvas.width  = w;
-    scanCanvas.height = h;
-    scanCtx.drawImage(video, 0, 0, w, h);
-    var imageData = scanCtx.getImageData(0, 0, w, h);
-
-    // 1. Thử QR code bằng jsQR
-    if (typeof jsQR !== 'undefined') {
-      var qr = jsQR(imageData.data, w, h, { inversionAttempts: 'dontInvert' });
-      if (qr && qr.data) {
+  barcodeDetector.detect(video)
+    .then(function(codes) {
+      if (!isScanning) return;
+      if (codes && codes.length > 0) {
         isScanning = false;
-        onCodeScanned(qr.data);
-        return;
+        onCodeScanned(codes[0].rawValue);
+      } else {
+        rafId = setTimeout(function(){ scanLoop(video); }, 150);
       }
-    }
-
-    // 2. Thử Barcode bằng Quagga (decode 1 frame)
-    if (typeof Quagga !== 'undefined') {
-      try {
-        Quagga.decodeSingle({
-          decoder: { readers: ['ean_reader','ean_8_reader','code_128_reader','code_39_reader','upc_reader','upc_e_reader','i2of5_reader'] },
-          locate: true,
-          src: scanCanvas.toDataURL('image/png')
-        }, function(result) {
-          if (result && result.codeResult && result.codeResult.code && isScanning) {
-            isScanning = false;
-            onCodeScanned(result.codeResult.code);
-            return;
-          }
-        });
-      } catch(e) {}
-    }
-
-    rafId = requestAnimationFrame(tick);
-  }
-
-  rafId = requestAnimationFrame(tick);
+    })
+    .catch(function() {
+      if (isScanning) rafId = setTimeout(function(){ scanLoop(video); }, 300);
+    });
 }
 
 function showCameraHint(text) {
@@ -613,7 +600,7 @@ function resumeScan() {
   isScanning = true;
   document.getElementById('scan-result-bar').classList.remove('show');
   var video = document.getElementById('camera-video');
-  startScanner(video);
+  scanLoop(video);
 }
 
 function confirmScan() {
@@ -627,8 +614,8 @@ function confirmScan() {
 
 function closeCamera() {
   isScanning = false;
-  if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
-  if (codeReader) { try { codeReader.reset(); } catch(e){} codeReader = null; }
+  if (rafId) { clearTimeout(rafId); rafId = null; }
+  barcodeDetector = null;
   if (scanStream) { scanStream.getTracks().forEach(function(t){ t.stop(); }); scanStream = null; }
   var video = document.getElementById('camera-video');
   video.srcObject = null;

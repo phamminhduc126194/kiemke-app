@@ -655,6 +655,22 @@ function confirmManualInput() {
 }
 
 // ===================== SUBMIT =====================
+// Dùng GET thay POST để tránh CORS trên Chrome/Safari iOS
+function callAPI(params, callback) {
+  var url = API_URL + '?' + Object.keys(params).map(function(k) {
+    return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]);
+  }).join('&');
+
+  fetch(url, { method: 'GET' })
+    .then(function(r) { return r.json(); })
+    .then(callback)
+    .catch(function() {
+      hideLoading(); stats.err++;
+      showToast('error','❌','Mất kết nối','Kiểm tra mạng và thử lại');
+      updateStatNumbers();
+    });
+}
+
 function submitScan() {
   var masp = '', imei = '';
   if (scanType === 'normal') {
@@ -669,9 +685,7 @@ function submitScan() {
   var vitri = selectedVitri || document.getElementById('inp-vitri-custom').value.trim() || 'Không rõ';
   showLoading('Đang ghi nhận...');
 
-  fetch(API_URL, { method: 'POST', body: JSON.stringify({ action:'scan', masp:masp, imei:imei, nguoikiem:userName, vitri:vitri }) })
-  .then(function(r){ return r.json(); })
-  .then(function(data) {
+  callAPI({ action:'scan', masp:masp, imei:imei, nguoikiem:userName, vitri:vitri }, function(data) {
     hideLoading();
     if (data.duplicate) {
       stats.dup++;
@@ -687,11 +701,6 @@ function submitScan() {
       showToast('error','❌','Lỗi', data.message||'Không thể ghi nhận');
       addLog({ masp:masp||imei, tensp:'', imei:imei, status:'err', msg:data.message||'Lỗi', vitri:vitri });
     }
-    updateStatNumbers();
-  })
-  .catch(function() {
-    hideLoading(); stats.err++;
-    showToast('error','❌','Mất kết nối','Kiểm tra mạng và thử lại');
     updateStatNumbers();
   });
 }
@@ -738,17 +747,14 @@ function refreshStats() {
 function confirmReset() {
   if (!confirm('Reset toàn bộ phiếu kiểm kê?\nDữ liệu trong Google Sheets sẽ bị xóa!')) return;
   showLoading('Đang reset...');
-  fetch(API_URL, { method:'POST', body: JSON.stringify({ action:'resetKiemKe' }) })
-  .then(function(r){ return r.json(); })
-  .then(function(data) {
+  callAPI({ action: 'resetKiemKe' }, function(data) {
     hideLoading();
     if (data.success) {
       sessionLog=[]; stats={total:0,session:0,dup:0,err:0};
       renderLog(); updateStatNumbers();
       showToast('success','✅','Đã reset thành công','Sẵn sàng đợt kiểm kê mới');
     } else showToast('error','❌','Lỗi', data.message);
-  })
-  .catch(function(){ hideLoading(); showToast('error','❌','Mất kết nối','Không thể reset'); });
+  });
 }
 
 // ===================== TOAST / LOADING =====================

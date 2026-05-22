@@ -8,7 +8,8 @@
 <meta name="apple-mobile-web-app-title" content="Kiểm Kê">
 <title>Hệ thống Kiểm Kê</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script src="https://unpkg.com/html5-qrcode"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
 <style>
   :root {
     --bg: #0d0f14; --bg2: #151820; --bg3: #1e2230;
@@ -76,16 +77,10 @@
     display: none; flex-direction: column;
   }
   #camera-overlay.show { display: flex; }
-  
-  #reader {
-    position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; background: #000;
-  }
-  #reader video {
-    object-fit: cover !important; width: 100% !important; height: 100% !important;
-  }
+  #camera-video { width: 100%; height: 100%; object-fit: cover; }
 
   .camera-ui {
-    position: absolute; inset: 0; z-index: 2;
+    position: absolute; inset: 0;
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
     pointer-events: none;
@@ -106,6 +101,7 @@
     pointer-events: auto;
   }
 
+  /* Khung ngắm */
   .scan-frame {
     width: 260px; height: 260px; position: relative;
   }
@@ -119,6 +115,7 @@
   .scan-frame .corner-br { bottom: 0; right: 0; border-width: 0 4px 4px 0; border-radius: 0 0 4px 0; }
   .scan-frame .corner-bl { bottom: 0; left: 0; border-width: 0 0 4px 4px; border-radius: 0 0 0 4px; }
 
+  /* Laser line */
   .scan-laser {
     position: absolute; left: 8px; right: 8px; height: 2px;
     background: linear-gradient(to right, transparent, var(--accent), transparent);
@@ -132,6 +129,7 @@
     text-align: center; color: rgba(255,255,255,0.8); font-size: 14px;
   }
 
+  /* Nút nhập tay trong camera */
   .camera-manual-btn {
     position: absolute; bottom: 50px; left: 50%; transform: translateX(-50%);
     background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);
@@ -140,8 +138,9 @@
     cursor: pointer; pointer-events: auto; white-space: nowrap;
   }
 
+  /* Kết quả quét hiện nhanh */
   .scan-result-bar {
-    position: absolute; bottom: 0; left: 0; right: 0; z-index: 3;
+    position: absolute; bottom: 0; left: 0; right: 0;
     background: rgba(13,15,20,0.95); padding: 20px;
     transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
     pointer-events: auto;
@@ -160,6 +159,7 @@
   .scan-type-btn { flex: 1; padding: 10px 8px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg3); color: var(--text2); font-family: var(--font); font-size: 13px; font-weight: 500; cursor: pointer; text-align: center; transition: all 0.15s; }
   .scan-type-btn.active { background: rgba(0,229,160,0.12); border-color: var(--accent); color: var(--accent); }
 
+  /* Input + nút camera */
   .input-row { display: flex; gap: 8px; margin-bottom: 12px; align-items: stretch; }
   .input-row .field-input { flex: 1; }
   .btn-cam { width: 52px; height: 52px; border-radius: 12px; background: var(--accent); border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
@@ -231,6 +231,7 @@
 </head>
 <body>
 
+<!-- SCREEN SETUP -->
 <div id="screen-setup" class="screen active">
   <div class="setup-inner">
     <div class="logo-icon">📦</div>
@@ -260,6 +261,7 @@
   </div>
 </div>
 
+<!-- SCREEN MAIN -->
 <div id="screen-main" class="screen">
   <div class="topbar">
     <div>
@@ -278,6 +280,7 @@
     <div class="tab-item" onclick="switchTab('stats',this)"><span class="tab-icon">📊</span><span>Thống kê</span></div>
   </div>
 
+  <!-- TAB QUÉT MÃ -->
   <div id="tab-scan" class="tab-content active">
     <div class="scan-card">
       <div class="scan-card-title">Loại hàng</div>
@@ -290,6 +293,7 @@
     <div class="scan-card">
       <div class="scan-card-title">Thông tin quét</div>
 
+      <!-- Hàng thường -->
       <div id="normal-fields">
         <div class="field-label" style="margin-bottom:8px">Mã sản phẩm</div>
         <div class="input-row">
@@ -298,6 +302,7 @@
         </div>
       </div>
 
+      <!-- Hàng IMEI -->
       <div id="imei-fields" style="display:none">
         <div class="field-label" style="margin-bottom:8px">Số IMEI / Serial</div>
         <div class="input-row">
@@ -327,6 +332,7 @@
     </button>
   </div>
 
+  <!-- TAB LỊCH SỬ -->
   <div id="tab-log" class="tab-content">
     <div class="log-header">
       <h3>Lịch sử quét</h3>
@@ -337,6 +343,7 @@
     </div>
   </div>
 
+  <!-- TAB THỐNG KÊ -->
   <div id="tab-stats" class="tab-content">
     <div class="stats-grid">
       <div class="stat-card"><div class="stat-label">Đã quét</div><div class="stat-val green" id="stat-total">0</div></div>
@@ -355,8 +362,9 @@
   </div>
 </div>
 
+<!-- CAMERA OVERLAY -->
 <div id="camera-overlay">
-  <div id="reader"></div>
+  <video id="camera-video" autoplay playsinline muted></video>
   <div class="camera-ui">
     <div class="camera-header">
       <div class="camera-title" id="camera-title">Quét mã sản phẩm</div>
@@ -371,6 +379,7 @@
     <button class="camera-manual-btn" onclick="openManualInput()">✏️ Nhập tay</button>
   </div>
 
+  <!-- Kết quả quét -->
   <div class="scan-result-bar" id="scan-result-bar">
     <div class="scan-result-code" id="result-code"></div>
     <div class="scan-result-hint" id="result-hint">Nhấn xác nhận để ghi nhận</div>
@@ -381,6 +390,7 @@
   </div>
 </div>
 
+<!-- MANUAL INPUT POPUP -->
 <div class="manual-popup" id="manual-popup">
   <div class="manual-popup-title" id="manual-popup-title">Nhập mã thủ công</div>
   <input class="field-input" id="manual-input" type="text" placeholder="Nhập mã..." autocomplete="off">
@@ -390,6 +400,7 @@
   </div>
 </div>
 
+<!-- LOADING + TOAST -->
 <div class="loading-overlay" id="loading">
   <div class="spinner"></div>
   <div class="loading-text" id="loading-text">Đang gửi dữ liệu...</div>
@@ -404,7 +415,7 @@
 </div>
 
 <script>
-// ===================== STATE TỪ BẢN GỐC =====================
+// ===================== STATE =====================
 var API_URL = '';
 var userName = '';
 var dotKiemKe = '';
@@ -415,8 +426,9 @@ var stats = { total: 0, session: 0, dup: 0, err: 0 };
 var toastTimer = null;
 
 // Camera state
-var currentScanTarget = 'masp';
-var html5QrCode = null; 
+var currentScanTarget = 'masp'; // masp | imei | masp-imei
+var codeReader = null;
+var scanStream = null;
 var scannedCode = '';
 var isScanning = false;
 
@@ -488,7 +500,7 @@ function selectVitri(el) {
   else { custom.style.display = 'none'; selectedVitri = el.textContent; }
 }
 
-// ===================== CAMERA BẰNG HTML5-QRCODE CHUẨN =====================
+// ===================== CAMERA =====================
 function openCamera(target) {
   currentScanTarget = target;
   scannedCode = '';
@@ -501,41 +513,96 @@ function openCamera(target) {
   overlay.style.display = 'flex';
   isScanning = true;
 
-  if (!html5QrCode) {
-    html5QrCode = new Html5Qrcode("reader");
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } })
+  .then(function(stream) {
+    scanStream = stream;
+    var video = document.getElementById('camera-video');
+    video.srcObject = stream;
+    video.play();
+    video.onloadedmetadata = function() { startScanner(video); };
+  })
+  .catch(function(err) {
+    overlay.style.display = 'none';
+    if (err.name === 'NotAllowedError') {
+      alert('Bạn cần cho phép truy cập camera!\nVào Cài đặt iPhone → Safari → Camera → Cho phép');
+    } else {
+      alert('Không thể mở camera: ' + err.message);
+    }
+  });
+}
+
+// Canvas dùng để decode frame
+var scanCanvas = null;
+var scanCtx = null;
+var rafId = null;
+
+function startScanner(video) {
+  // Tạo canvas ẩn để lấy frame
+  if (!scanCanvas) {
+    scanCanvas = document.createElement('canvas');
+    scanCtx = scanCanvas.getContext('2d');
   }
 
-  // Cấu hình chuẩn nhất: Chỉ dùng facingMode
-  var cameraConfig = { facingMode: "environment" };
+  showCameraHint('Đưa mã vào khung — camera tự nhận diện');
 
-  html5QrCode.start(
-    cameraConfig,
-    {
-      fps: 20,
-      // Khung hình chữ nhật ngang bao trọn mã vạch Barcode
-      qrbox: function(viewfinderWidth, viewfinderHeight) {
-        var boxWidth = viewfinderWidth > 320 ? 320 : viewfinderWidth - 40;
-        return { width: boxWidth, height: 130 };
-      }
-    },
-    function(decodedText) {
-      if (isScanning) {
-        isScanning = false;
-        onCodeScanned(decodedText);
-      }
-    },
-    function(errorMessage) {
-      // Bỏ qua các lỗi rác trong quá trình dò tìm khung hình
+  function tick() {
+    if (!isScanning) return;
+    if (video.readyState !== video.HAVE_ENOUGH_DATA) {
+      rafId = requestAnimationFrame(tick);
+      return;
     }
-  ).catch(function(err) {
-    overlay.style.display = 'none';
-    alert("Không thể mở camera. Vui lòng kiểm tra quyền truy cập! Lỗi: " + err);
-  });
+
+    var w = video.videoWidth;
+    var h = video.videoHeight;
+    if (w === 0 || h === 0) { rafId = requestAnimationFrame(tick); return; }
+
+    scanCanvas.width  = w;
+    scanCanvas.height = h;
+    scanCtx.drawImage(video, 0, 0, w, h);
+    var imageData = scanCtx.getImageData(0, 0, w, h);
+
+    // 1. Thử QR code bằng jsQR
+    if (typeof jsQR !== 'undefined') {
+      var qr = jsQR(imageData.data, w, h, { inversionAttempts: 'dontInvert' });
+      if (qr && qr.data) {
+        isScanning = false;
+        onCodeScanned(qr.data);
+        return;
+      }
+    }
+
+    // 2. Thử Barcode bằng Quagga (decode 1 frame)
+    if (typeof Quagga !== 'undefined') {
+      try {
+        Quagga.decodeSingle({
+          decoder: { readers: ['ean_reader','ean_8_reader','code_128_reader','code_39_reader','upc_reader','upc_e_reader','i2of5_reader'] },
+          locate: true,
+          src: scanCanvas.toDataURL('image/png')
+        }, function(result) {
+          if (result && result.codeResult && result.codeResult.code && isScanning) {
+            isScanning = false;
+            onCodeScanned(result.codeResult.code);
+            return;
+          }
+        });
+      } catch(e) {}
+    }
+
+    rafId = requestAnimationFrame(tick);
+  }
+
+  rafId = requestAnimationFrame(tick);
+}
+
+function showCameraHint(text) {
+  document.getElementById('camera-hint').textContent = text;
 }
 
 function onCodeScanned(code) {
   scannedCode = code;
+  // Rung nhẹ
   if (navigator.vibrate) navigator.vibrate(100);
+  // Hiện kết quả
   document.getElementById('result-code').textContent = code;
   document.getElementById('result-hint').textContent = 'Nhấn Xác nhận để ghi nhận vào ô nhập liệu';
   document.getElementById('scan-result-bar').classList.add('show');
@@ -545,10 +612,13 @@ function resumeScan() {
   scannedCode = '';
   isScanning = true;
   document.getElementById('scan-result-bar').classList.remove('show');
+  var video = document.getElementById('camera-video');
+  startScanner(video);
 }
 
 function confirmScan() {
   if (!scannedCode) return;
+  // Điền vào ô tương ứng
   if (currentScanTarget === 'masp') document.getElementById('inp-masp').value = scannedCode;
   else if (currentScanTarget === 'imei') document.getElementById('inp-imei').value = scannedCode;
   else if (currentScanTarget === 'masp-imei') document.getElementById('inp-masp-imei').value = scannedCode;
@@ -557,14 +627,13 @@ function confirmScan() {
 
 function closeCamera() {
   isScanning = false;
+  if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+  if (codeReader) { try { codeReader.reset(); } catch(e){} codeReader = null; }
+  if (scanStream) { scanStream.getTracks().forEach(function(t){ t.stop(); }); scanStream = null; }
+  var video = document.getElementById('camera-video');
+  video.srcObject = null;
   document.getElementById('camera-overlay').style.display = 'none';
   document.getElementById('scan-result-bar').classList.remove('show');
-  
-  if (html5QrCode) {
-    try {
-      html5QrCode.stop().catch(function(err){ console.log("Lỗi tắt camera:", err); });
-    } catch(e) {}
-  }
 }
 
 // ===================== NHẬP TAY =====================
@@ -588,7 +657,7 @@ function confirmManualInput() {
   closeManualInput();
 }
 
-// ===================== SUBMIT API =====================
+// ===================== SUBMIT =====================
 function submitScan() {
   var masp = '', imei = '';
   if (scanType === 'normal') {

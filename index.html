@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Kiểm Kê">
 <title>Hệ thống Kiểm Kê</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <style>
   :root {
     --bg: #0d0f14; --bg2: #151820; --bg3: #1e2230;
@@ -520,12 +520,9 @@ function openCamera(target) {
     video.play();
     video.onloadedmetadata = function() {
       if (!('BarcodeDetector' in window)) {
-        // BarcodeDetector chưa bật — hướng dẫn bật
-        showCameraHint('⚠️ Cần bật tính năng quét trong Safari. Xem hướng dẫn bên dưới.');
-        showToast('warn','⚠️','Cần bật BarcodeDetector','Vào Cài đặt → Safari → Nâng cao → Thử nghiệm → bật Shape Detection');
-      } else {
-        startScanner(video);
+        showCameraHint('Đưa mã vào khung — camera tự nhận diện');
       }
+      startScanner(video);
     };
   })
   .catch(function(err) {
@@ -542,43 +539,56 @@ var rafId = null;
 var barcodeDetector = null;
 
 function startScanner(video) {
-  // iOS 17/18 Safari hỗ trợ BarcodeDetector native
-  if (!('BarcodeDetector' in window)) {
-    showCameraHint('Trình duyệt không hỗ trợ quét tự động. Dùng ✏️ Nhập tay.');
-    return;
+  showCameraHint('Đưa mã vào khung — giữ yên tay');
+
+  // Tạo canvas ẩn để đọc pixel
+  var canvas = document.createElement('canvas');
+  var ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+  function tick() {
+    if (!isScanning) return;
+    if (video.readyState < video.HAVE_ENOUGH_DATA || video.videoWidth === 0) {
+      rafId = requestAnimationFrame(tick); return;
+    }
+
+    var w = video.videoWidth, h = video.videoHeight;
+    canvas.width = w; canvas.height = h;
+    ctx.drawImage(video, 0, 0, w, h);
+
+    // Đọc QR code bằng jsQR
+    try {
+      var imageData = ctx.getImageData(0, 0, w, h);
+      var qr = jsQR(imageData.data, w, h, { inversionAttempts: 'attemptBoth' });
+      if (qr && qr.data && isScanning) {
+        isScanning = false;
+        onCodeScanned(qr.data);
+        return;
+      }
+    } catch(e) {}
+
+    // Đọc Barcode bằng BarcodeDetector nếu có (Chrome Android hỗ trợ)
+    if ('BarcodeDetector' in window && barcodeDetector) {
+      barcodeDetector.detect(video).then(function(codes) {
+        if (codes && codes.length > 0 && isScanning) {
+          isScanning = false;
+          onCodeScanned(codes[0].rawValue);
+        }
+      }).catch(function(){});
+    }
+
+    rafId = requestAnimationFrame(tick);
   }
 
-  // Khởi tạo detector với tất cả định dạng phổ biến
-  BarcodeDetector.getSupportedFormats().then(function(formats) {
-    barcodeDetector = new BarcodeDetector({ formats: formats });
-    showCameraHint('Đưa mã vào khung — giữ yên tay');
-    scanLoop(video);
-  }).catch(function() {
-    // Fallback nếu getSupportedFormats không có
-    barcodeDetector = new BarcodeDetector({
-      formats: ['qr_code','ean_13','ean_8','code_128','code_39','upc_a','upc_e','itf','data_matrix','aztec','pdf417']
+  // Khởi tạo BarcodeDetector nếu trình duyệt hỗ trợ (Chrome Android)
+  if ('BarcodeDetector' in window) {
+    BarcodeDetector.getSupportedFormats().then(function(fmts) {
+      barcodeDetector = new BarcodeDetector({ formats: fmts });
+    }).catch(function() {
+      barcodeDetector = new BarcodeDetector({ formats: ['ean_13','ean_8','code_128','code_39','upc_a','upc_e','qr_code','itf'] });
     });
-    showCameraHint('Đưa mã vào khung — giữ yên tay');
-    scanLoop(video);
-  });
-}
+  }
 
-function scanLoop(video) {
-  if (!isScanning) return;
-
-  barcodeDetector.detect(video)
-    .then(function(codes) {
-      if (!isScanning) return;
-      if (codes && codes.length > 0) {
-        isScanning = false;
-        onCodeScanned(codes[0].rawValue);
-      } else {
-        rafId = setTimeout(function(){ scanLoop(video); }, 150);
-      }
-    })
-    .catch(function() {
-      if (isScanning) rafId = setTimeout(function(){ scanLoop(video); }, 300);
-    });
+  rafId = requestAnimationFrame(tick);
 }
 
 function showCameraHint(text) {
@@ -600,12 +610,12 @@ function resumeScan() {
   isScanning = true;
   document.getElementById('scan-result-bar').classList.remove('show');
   var video = document.getElementById('camera-video');
-  scanLoop(video);
+  if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+  startScanner(video);
 }
 
 function confirmScan() {
   if (!scannedCode) return;
-  // Điền vào ô tương ứng
   if (currentScanTarget === 'masp') document.getElementById('inp-masp').value = scannedCode;
   else if (currentScanTarget === 'imei') document.getElementById('inp-imei').value = scannedCode;
   else if (currentScanTarget === 'masp-imei') document.getElementById('inp-masp-imei').value = scannedCode;
@@ -614,7 +624,7 @@ function confirmScan() {
 
 function closeCamera() {
   isScanning = false;
-  if (rafId) { clearTimeout(rafId); rafId = null; }
+  if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
   barcodeDetector = null;
   if (scanStream) { scanStream.getTracks().forEach(function(t){ t.stop(); }); scanStream = null; }
   var video = document.getElementById('camera-video');
